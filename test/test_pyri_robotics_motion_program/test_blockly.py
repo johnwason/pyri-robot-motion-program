@@ -1,15 +1,5 @@
-from pyri.sandbox import blockly_compiler
-import io
+from pyri.sandbox.util import run_blockly_compile_test
 
-def _do_blockly_compile_test(blockly_json, expected_pysrc):
-    json_io = io.StringIO(blockly_json)
-    output_io = io.StringIO()
-
-    blockly_compiler.compile_blockly_file(json_io, output_io)
-    output_io.seek(0)
-    pysrc_str = output_io.read()
-    print(pysrc_str)
-    assert pysrc_str == expected_pysrc
 
 def test_blockly_compiler_robotics():
     robotics_blockly_json = \
@@ -256,4 +246,4 @@ def test_blockly_compiler_robotics():
         "  robot_mp_execute(True)\n" \
         "  robot_mp_execute(False)\n"
 
-    _do_blockly_compile_test(robotics_blockly_json, expected_pysrc)
+    run_blockly_compile_test(robotics_blockly_json, expected_pysrc)
