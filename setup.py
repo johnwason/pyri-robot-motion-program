@@ -18,6 +18,7 @@ setup(
     entry_points = {
         'pyri.plugins.sandbox_functions': ['pyri-robotics-sandbox-functions=pyri.robotics_motion_program.sandbox_functions:get_sandbox_functions_factory'],
         'pyri.plugins.blockly': ['pyri-robotics-plugin-blockly=pyri.robotics_motion_program.blockly:get_blockly_factory'],
-        'pyri.plugins.webui_server': ['pyri-robotics-motion-program-webui-server=pyri.robotics_motion_program.webui_server:get_webui_factory']
+        'pyri.plugins.webui_server': ['pyri-robotics-motion-program-webui-server=pyri.robotics_motion_program.webui_server:get_webui_factory'],
+        'pyri.plugins.robdef': ['pyri-robotics-motion-program-robdef=pyri.robotics_motion_program.robdef:get_robdef_factory'],
     }
 )

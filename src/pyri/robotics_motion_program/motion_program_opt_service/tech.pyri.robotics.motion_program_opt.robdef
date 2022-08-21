@@ -1,0 +1,50 @@
+service tech.pyri.robotics.motion_program_opt
+
+stdver 0.10
+
+import com.robotraconteur.device
+import com.robotraconteur.geometry
+import com.robotraconteur.action
+import com.robotraconteur.robotics.trajectory
+import experimental.robotics.motion_program
+import com.robotraconteur.action
+
+using com.robotraconteur.device.Device
+using com.robotraconteur.device.DeviceInfo
+using com.robotraconteur.geometry.Pose2D
+using com.robotraconteur.geometry.Pose
+using com.robotraconteur.geometry.Point
+using experimental.robotics.motion_program.MotionProgram
+using com.robotraconteur.action.ActionStatusCode
+
+pod GreedyAlgCurvePt
+    field Point curve
+    field Point curve_fit
+    field double[16-] curve_fit_js
+end
+
+struct GreedyFittingResult
+    field MotionProgram motion_program
+    field GreedyAlgCurvePt[] curve
+end
+
+struct GreedyFittingStatus
+    field ActionStatusCode action_status    
+    field GreedyFittingResult result
+    field string{list} log_output
+end
+
+object RoboticsMotionProgramOptimizationService
+    implements Device
+
+    constant string trajectory_data_format_p_n "trajectory-data-format-p-n"
+    constant string trajectory_data_format_p_R "trajectory-data-format-p-R"
+    constant string trajectory_data_format_p_q "trajectory-data-format-p-q"
+    constant string trajectory_data_format_joints6 "trajectory-data-format-joints6"
+    constant string trajectory_data_format_joints7 "trajectory-data-format-joints7"
+
+    property DeviceInfo device_info [readonly,nolock]
+    function GreedyFittingStatus{generator} greedy_fitting_motion_program_opt(double[*] input_trajectory, string trajectory_format, \
+        string frame, string robot_local_device_name, string robot_origin_calib_global_name, Pose tool_pose, \
+        varvalue{string} opt_params, string output_global_name)
+end
