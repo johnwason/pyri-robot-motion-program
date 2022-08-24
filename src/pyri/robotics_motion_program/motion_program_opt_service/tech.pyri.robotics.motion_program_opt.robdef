@@ -17,15 +17,16 @@ using com.robotraconteur.geometry.Point
 using experimental.robotics.motion_program.MotionProgram
 using com.robotraconteur.action.ActionStatusCode
 
-pod GreedyAlgCurvePt
-    field Point curve
-    field Point curve_fit
-    field double[16-] curve_fit_js
+struct OptResultGlobalVariable
+    field string var_contents
+    field string title
+    field string global_name
+    field string short_description
 end
 
 struct GreedyFittingResult
     field MotionProgram motion_program
-    field GreedyAlgCurvePt[] curve
+    field OptResultGlobalVariable{list} result_global_variables
 end
 
 struct GreedyFittingStatus

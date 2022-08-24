@@ -135,6 +135,9 @@ def robot_mp_execute(wait):
     
     PyriSandboxContext.action_runner.run_action(robot_name,mp_gen,wait)
 
+def robot_mp_load(motion_program):
+    PyriSandboxContext.context_vars["robot_motion_program"] = motion_program
+
 
 def _get_sandbox_functions():
     return {
@@ -145,7 +148,9 @@ def _get_sandbox_functions():
         "robot_mp_movel": robot_mp_movel,
         "robot_mp_movej": robot_mp_movej,
         "robot_mp_movec": robot_mp_movec,
-        "robot_mp_execute": robot_mp_execute
+        "robot_mp_execute": robot_mp_execute,
+        "robot_mp_load": robot_mp_load
+
     }
 
 class RoboticsMPSandboxFunctionsPluginFactory(PyriSandboxFunctionsPluginFactory):

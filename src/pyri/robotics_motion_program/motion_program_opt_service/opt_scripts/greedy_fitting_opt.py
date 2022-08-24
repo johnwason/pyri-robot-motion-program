@@ -32,14 +32,15 @@ def main():
     print(f"input trajectory_format: {opt_params['trajectory_format']}")
     print(f"input input_trajectory.shape: {opt_params['input_trajectory'].shape}")
 
-    assert opt_params['trajectory_format'] == "trajectory-data-format-p-n", "Trajectory data must be in (xyz),(ijk) format"
+    assert opt_params['trajectory_format'] == "trajectory-data-format-joints6", "Trajectory data must be in Joints 6 axis (q1,q2,q3,q4,q5,q6) format"
 
     curve_js = opt_params['input_trajectory']
+    max_error_threshold = opt_params['max_error_threshold']
 
     # TODO: use input robot kinematics
     robot=abb6640(d=50)
 
-    greedy_fit_obj=greedy_fit(robot,curve_js,0.02)
+    greedy_fit_obj=greedy_fit(robot,curve_js,max_error_threshold)
 
     greedy_fit_obj.primitives={'movel_fit':greedy_fit_obj.movel_fit_greedy,'movej_fit':greedy_fit_obj.movej_fit_greedy}
 
@@ -56,6 +57,21 @@ def main():
     print(f"len(primitives_choices): {len(primitives_choices)}")
     print(f"len(points): {len(points)}")
     print(f"len(q_bp): {len(q_bp)}")
+
+    output = {
+        "breakpoints": breakpoints,
+        "primitive_choices": primitives_choices,
+        "points": points,
+        "q_bp": q_bp,
+        "curve_fit": greedy_fit_obj.curve_fit,
+        "curve": greedy_fit_obj.curve,
+        "curve_fit_js": greedy_fit_obj.curve_fit_js
+    }
+
+    output_fname = Path(sys.argv[1])/ "greedy_fitting_opt_output.pickle"
+
+    with open(output_fname, "wb") as f:
+        pickle.dump(output, f)
 
 if __name__ == "__main__":
     main()
