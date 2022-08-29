@@ -24,15 +24,16 @@ struct OptResultGlobalVariable
     field string short_description
 end
 
-struct GreedyFittingResult
+struct MotionOptResult
     field MotionProgram motion_program
     field OptResultGlobalVariable{list} result_global_variables
 end
 
-struct GreedyFittingStatus
+struct MotionOptStatus
     field ActionStatusCode action_status    
-    field GreedyFittingResult result
+    field MotionOptResult result
     field string{list} log_output
+    field uint8[]{string} plots
 end
 
 object RoboticsMotionProgramOptimizationService
@@ -45,7 +46,5 @@ object RoboticsMotionProgramOptimizationService
     constant string trajectory_data_format_joints7 "trajectory-data-format-joints7"
 
     property DeviceInfo device_info [readonly,nolock]
-    function GreedyFittingStatus{generator} greedy_fitting_motion_program_opt(double[*] input_trajectory, string trajectory_format, \
-        string frame, string robot_local_device_name, string robot_origin_calib_global_name, Pose tool_pose, \
-        varvalue{string} opt_params, string output_global_name)
+    function MotionOptStatus{generator} motion_program_opt(string algorithm, varvalue{string} input_parameters)
 end

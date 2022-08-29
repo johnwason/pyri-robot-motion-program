@@ -30,7 +30,7 @@ from .. import util
 
 
 class RobotMPOpt_impl(object):
-    def __init__(self, device_manager, temp_data_dir = None, device_info = None, node: RR.RobotRaconteurNode = None):
+    def __init__(self, device_manager, device_info = None, node: RR.RobotRaconteurNode = None):
 
         if node is None:
             self._node = RR.RobotRaconteurNode.s
@@ -39,7 +39,6 @@ class RobotMPOpt_impl(object):
         self._node.RequestTimeout = 1000000
         self.device_info = device_info
         self.device_manager = device_manager
-        self.temp_data_dir = temp_data_dir
         self.device_manager.connect_device_type("experimental.robotics.motion_program.MotionProgramRobot")
         self.device_manager.connect_device_type("tech.pyri.variable_storage.VariableStorage")
 
@@ -54,45 +53,44 @@ class RobotMPOpt_impl(object):
         self.service_path = service_path
         self.ctx = ctx
 
-    def greedy_fitting_motion_program_opt(self, input_trajectory, trajectory_format, frame, robot_local_device_name, 
-        robot_origin_calib_global_name, tool_pose, opt_params, output_global_name):
+    def motion_program_opt(self, algorithm, input_parameters):
 
         timestamp = datetime.now().strftime("%Y-%m-%d--%H-%M-%S.%f")
 
         print(f"timestamp: {timestamp}")
-        print(f"input_trajectory.shape: {input_trajectory.shape}")
-        print(f"trajectory_format: {trajectory_format}")
-        print(f"frame: {frame}")
-        print(f"robot_local_device_name: {robot_local_device_name}")
-        print(f"robot_origin_calib_global_name: {robot_origin_calib_global_name}")
-        print(f"output_global_name: {output_global_name}")
+
+
+        if algorithm == "redundancy_resolution":
+            from .redundancy_resolution_alg import run_redundancy_resolution_algorithm
+            return run_redundancy_resolution_algorithm(algorithm, input_parameters, self.device_manager, self._node)
+        else:
+            assert False, f"Invalid motion program optimization algorithm: {algorithm}"
+
         #raise RR.NotImplementedException("Not implemented")
 
-        var_storage = self.device_manager.get_device_client("variable_storage",0.1)
+        # robot = self.device_manager.get_device_client(robot_local_device_name)
+        # robot_info = robot.motion_program_robot_info.robot_info
+        # rox_robot = self._robot_util.robot_info_to_rox_robot(robot_info,0)
 
-        robot = self.device_manager.get_device_client(robot_local_device_name)
-        robot_info = robot.motion_program_robot_info.robot_info
-        rox_robot = self._robot_util.robot_info_to_rox_robot(robot_info,0)
+        # assert trajectory_format == "trajectory-data-format-joints6", "Trajectory data must be in Joints 6 axis (q1,q2,q3,q4,q5,q6) format"
+        # assert frame == "robot" or frame=="world", "Frame must be \"robot\" or \"world\""
 
-        assert trajectory_format == "trajectory-data-format-joints6", "Trajectory data must be in Joints 6 axis (q1,q2,q3,q4,q5,q6) format"
-        assert frame == "robot" or frame=="world", "Frame must be \"robot\" or \"world\""
+        # if frame == "world":
+        #     robot_origin_pose = var_storage.getf_variable_value("globals",robot_origin_calib_global_name)
+        #     T_rob = self._geom_util.named_pose_to_rox_transform(robot_origin_pose.data.pose)
 
-        if frame == "world":
-            robot_origin_pose = var_storage.getf_variable_value("globals",robot_origin_calib_global_name)
-            T_rob = self._geom_util.named_pose_to_rox_transform(robot_origin_pose.data.pose)
+        #     rox_robot2 = copy.deepcopy(rox_robot)
+        #     rox_robot2.P = np.array([(T_rob.R @ p1 + T_rob.p).flatten() for p1 in rox_robot.P.T]).T
+        #     rox_robot2.H = np.array([ (T_rob.R @ h1[0:3]) for h1 in rox_robot.H.T]).T
 
-            rox_robot2 = copy.deepcopy(rox_robot)
-            rox_robot2.P = np.array([(T_rob.R @ p1 + T_rob.p).flatten() for p1 in rox_robot.P.T]).T
-            rox_robot2.H = np.array([ (T_rob.R @ h1[0:3]) for h1 in rox_robot.H.T]).T
+        #     print(f"rox_robot.P: {rox_robot.P}")
+        #     print(f"rox_robot2.P: {rox_robot2.P}")
+        #     print(f"rox_robot.H: {rox_robot2.H}")
+        #     print(f"rox_robot2.H: {rox_robot2.H}")
 
-            print(f"rox_robot.P: {rox_robot.P}")
-            print(f"rox_robot2.P: {rox_robot2.P}")
-            print(f"rox_robot.H: {rox_robot2.H}")
-            print(f"rox_robot2.H: {rox_robot2.H}")
+        #     rox_robot = rox_robot2
 
-            rox_robot = rox_robot2
-
-        rox_tool_pose = self._geom_util.pose_to_rox_transform(tool_pose)
+        # rox_tool_pose = self._geom_util.pose_to_rox_transform(tool_pose)
 
         # tolerance_var = opt_params["max_error_threshold"]
         # assert tolerance_var.datatype == "double[]"
@@ -106,71 +104,106 @@ class RobotMPOpt_impl(object):
         # assert velocity_var.datatype == "double[]"
         # velocity = velocity_var.data[0]
 
-        max_error_threshold = 0.02
-        blend_radius = 0.2
-        velocity = 0.2
+        # max_error_threshold = 0.02
+        # blend_radius = 0.2
+        # velocity = 0.2
 
-        opt_params = {
-            "input_trajectory": input_trajectory,
-            "trajectory_format": trajectory_format,
-            "rox_robot": rox_robot,
-            "rox_tool_pose": rox_tool_pose,
-            "max_error_threshold": max_error_threshold,
-            "blend_radius": blend_radius,
-            "velocity": velocity
-        }
+        # opt_params = {
+        #     "input_trajectory": input_trajectory,
+        #     "trajectory_format": trajectory_format,
+        #     "rox_robot": rox_robot,
+        #     "rox_tool_pose": rox_tool_pose,
+        #     "max_error_threshold": max_error_threshold,
+        #     "blend_radius": blend_radius,
+        #     "velocity": velocity
+        # }
 
+
+class MotionOptExec:
+    def __init__(self, device_manager, save_input_parameters_fn, load_and_save_result_fn, load_progress_fn, node):
+        self.node = node
+        self.device_manager = device_manager
+        self.save_input_parameters_fn = save_input_parameters_fn
+        self.load_and_save_result_fn = load_and_save_result_fn
+        self.load_progress_fn = load_progress_fn
+
+        opt_python_exe = os.environ.get("PYRI_MOTION_PROGRAM_OPT_PYTHON_EXE",None)
+        opt_motion_dir = os.environ.get("PYRI_MOTION_PROGRAM_OPT_DIR",None)
+
+        assert opt_python_exe, "PYRI_MOTION_PROGRAM_OPT_PYTHON_EXE must point to Python executable for greedy algorithm"
+        assert opt_motion_dir, "PYRI_MOTION_PROGRAM_OPT_DIR must point to root of the motion optimization repository"
+
+        self.opt_python_exe = opt_python_exe
+        self.opt_motion_dir = opt_motion_dir
+
+
+    def run_alg(self, alg_name, alg_script_fname, input_parameters, py_subdirs = [], cwd = None):
+
+        timestamp = datetime.now().strftime("%Y-%m-%d--%H-%M-%S.%f")
+
+        print(f"Running motion program algorithm {alg_name} at {timestamp}")
+        
+        var_storage = self.device_manager.get_device_client("variable_storage",0.1)
+        
         try:
             temp_data_dir = None
-            if self.temp_data_dir is None:
+            temp_data_dir_env = os.environ.get("PYRI_MOTION_PROGRAM_OPT_TEMP_DIR",None)
+            if temp_data_dir_env is None:
                 temp_data_dir = tempfile.TemporaryDirectory()
                 data_dir = Path(temp_data_dir)
             else:
                 
-                data_dir = Path(self.temp_data_dir) / timestamp
+                data_dir = Path(temp_data_dir_env) / timestamp
                 data_dir.mkdir(exist_ok=True)
 
-            with open(data_dir / "greedy_fitting_opt_input.pickle", "wb") as f:
-                pickle.dump(opt_params, f)
+            with open(data_dir / "motion_opt_input.pickle", "wb") as f:
+                self.save_input_parameters_fn(input_parameters, var_storage, f, self.node)
 
-            opt_python_exe = os.environ.get("PYRI_MOTION_PROGRAM_OPT_PYTHON_EXE",None)
-            opt_greedy_dir = os.environ.get("PYRI_MOTION_PROGRAM_OPT_GREEDY_FITTING_DIR",None)
+            opt_python_exe = Path(self.opt_python_exe)
+            opt_motion_dir = Path(self.opt_motion_dir)
 
-            assert opt_python_exe, "PYRI_MOTION_PROGRAM_OPT_PYTHON_EXE must point to Python executable for greedy algorithm"
-            assert opt_greedy_dir, "PYRI_MOTION_PROGRAM_OPT_GREEDY_FITTING_DIR must point to greedy algorithm directory"
-
-            opt_python_exe = Path(opt_python_exe)
-            opt_greedy_dir = Path(opt_greedy_dir)
+            if cwd is not None:
+                cwd = Path(cwd)
+                if not cwd.is_absolute():
+                    cwd = opt_motion_dir / cwd
+            else:
+                cwd = opt_motion_dir
 
             sub_env = copy.copy(os.environ)
             # if "PYTHONPATH" in sub_env:
             #     del sub_env["PYTHONPATH"]
-            sub_env["PYTHONPATH"] = os.pathsep.join([
-                str(opt_greedy_dir),
-                str((opt_greedy_dir.parent / "toolbox").resolve())
-            ])
 
-            opt_script = importlib_resources.files(__package__) / "opt_scripts" / "greedy_fitting_opt.py"
+            
+            py_path = [str(opt_motion_dir)]
+            for py_subdir1 in py_subdirs:
+                py_path.append(str(opt_motion_dir / py_subdir1))
+            sub_env["PYTHONPATH"] = os.pathsep.join(py_path)
+
+            opt_script = importlib_resources.files(__package__) / "opt_scripts" / alg_script_fname
+
+            #subprocess.check_call([opt_python_exe, opt_script, data_dir],cwd=cwd, env=sub_env)
 
             opt_process = subprocess.Popen([opt_python_exe, opt_script, data_dir], stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, cwd=opt_greedy_dir, env=sub_env)
+                stderr=subprocess.STDOUT, cwd=cwd, env=sub_env)
 
-            opt_output_fname = data_dir / "greedy_fitting_opt_output.pickle"
+            opt_output_fname = data_dir / "motion_opt_output.pickle"
 
-            opt_gen = GreedyAlgGen(opt_process, opt_params, opt_output_fname, output_global_name, self.device_manager, self._node)
+            opt_gen = MotionAlgGen(self, opt_process, input_parameters, opt_output_fname, self.device_manager, self.node)
             opt_gen.start()
             return opt_gen
         finally:
             if temp_data_dir is not None:
                 temp_data_dir.cleanup()
 
-class GreedyAlgGen:
-    def __init__(self,opt_process,opt_input,opt_output_fname,output_global_name,device_manager,node):
+    
+
+class MotionAlgGen:
+    def __init__(self,opt_exec,opt_process,input_parameters,opt_output_fname,device_manager,node):
+        self.opt_exec = opt_exec
         self.opt_process = opt_process
         self.node = node
-        self.output_global_name = output_global_name
         self.device_manager = device_manager
-        self.opt_input = opt_input
+        self.input_parameters = input_parameters
         self.opt_output_fname = opt_output_fname
         self.closed=False
         self.aborted=False
@@ -178,11 +211,11 @@ class GreedyAlgGen:
         self.action_codes = self.node.GetConstants("com.robotraconteur.action")["ActionStatusCode"]
         self.completion_status=self.action_codes["error"]
         self.log_queue = queue.Queue()
-        self.greedy_fitting_result_type = self.node.GetStructureType("tech.pyri.robotics.motion_program_opt.GreedyFittingResult")
-        self.greedy_fitting_status_type = self.node.GetStructureType("tech.pyri.robotics.motion_program_opt.GreedyFittingStatus")
-        self.opt_var_type = self.node.GetStructureType("tech.pyri.robotics.motion_program_opt.OptResultGlobalVariable")
+        self.motion_opt_result_type = self.node.GetStructureType("tech.pyri.robotics.motion_program_opt.MotionOptResult")
+        self.motion_opt_status_type = self.node.GetStructureType("tech.pyri.robotics.motion_program_opt.MotionOptStatus")
         self.run_exp = None
         self.result = None
+        self.result_plots = None
 
     def start(self):
         self.thread = threading.Thread(target=self._run)
@@ -199,8 +232,8 @@ class GreedyAlgGen:
                     return
                 opt_process_retcode = self.opt_process.poll()
                 if opt_process_retcode is not None:
-                    self._save_results()                    
                     if opt_process_retcode == 0:
+                        self._save_results()                    
                         self.completion_status = self.action_codes["complete"]
                     else:
                         self.completion_status = self.action_codes["error"]
@@ -217,64 +250,38 @@ class GreedyAlgGen:
             self.log_queue.put(None)
 
     def _save_results(self):
-        with open(self.opt_output_fname, "rb") as f:
-            opt_output = pickle.load(f)
-
         var_storage = self.device_manager.get_device_client("variable_storage",0.1)
-
-        var_consts = var_storage.RRGetNode().GetConstants('tech.pyri.variable_storage', var_storage)
-        variable_persistence = var_consts["VariablePersistence"]
-        variable_protection_level = var_consts["VariableProtectionLevel"]
-
-        result_vars = []
+        save_result_var = SaveResultVar(var_storage)
         
-        def save_result_var(key, value = None, contents=None,title="",desc="", rr_type= "double[*]", convert_fn = None, suffix = True):
-            if value is None:
-                value = opt_output[key]
-            if convert_fn is not None:
-                value = convert_fn(value)
-            if contents is None:
-                contents = key
-            save_name = self.output_global_name
-            if suffix:
-                save_name = f"{self.output_global_name}_{key}"
-            var_storage.add_variable2("globals", save_name, rr_type, \
-                RR.VarValue(value,rr_type), ["motion_program_opt"], {}, variable_persistence["const"], 
-                None, variable_protection_level["read_write"], \
-                [], "Motion program optimization output", False)
+        with open(self.opt_output_fname, "rb") as f:
+            self.result, self.result_plots = self.opt_exec.load_and_save_result_fn(f, self.input_parameters, save_result_var, self.node)
 
-            var_info = self.opt_var_type()
-            var_info.var_contents = contents
-            var_info.title = title
-            var_info.global_name = f"{self.output_global_name}_{key}"
-            var_info.short_description = desc
-            result_vars.append(var_info)
        
-        # TODO: Use non-hardcoded robot and tool
-        opt_robot = util.abb6640(d=50)
-        convert_motion_plan = util.ConvertMotionProgram(self.device_manager, opt_robot, self.node)
-        motion_program = convert_motion_plan.convert_motion_program(opt_output["primitive_choices"], opt_output["breakpoints"], 
-            opt_output["points"], opt_output["q_bp"], self.opt_input["velocity"], self.opt_input["blend_radius"])
+        # # TODO: Use non-hardcoded robot and tool
+        # opt_robot = util.abb6640(d=50)
+        # convert_motion_plan = util.ConvertMotionProgram(self.device_manager, opt_robot, self.node)
+        # motion_program = convert_motion_plan.convert_motion_program(opt_output["primitive_choices"], opt_output["breakpoints"], 
+        #     opt_output["points"], opt_output["q_bp"], self.opt_input["velocity"], self.opt_input["blend_radius"])
 
-        save_result_var("motion_program", motion_program, title="Motion Program", suffix=False, 
-            rr_type = "experimental.robotics.motion_program.MotionProgram")
+        # save_result_var("motion_program", motion_program, title="Motion Program", suffix=False, 
+        #     rr_type = "experimental.robotics.motion_program.MotionProgram")
 
-        def fix_nested_list(a):
-            return [np.array(a1,dtype=np.float64) for a1 in a]
+        # def fix_nested_list(a):
+        #     return [np.array(a1,dtype=np.float64) for a1 in a]
 
         
-        save_result_var("curve_js", self.opt_input["input_trajectory"], title= "Input Trajectory (joint space)")
-        save_result_var("breakpoints", title = "Breakpoints", convert_fn = lambda a: np.array(a, dtype=np.float64))
-        save_result_var("primitive_choices", title = "Primitive Choices", rr_type="string{list}")
-        save_result_var("points", title = "Points", rr_type="double[*]{list}", convert_fn = fix_nested_list)
-        save_result_var("q_bp", title = "Joint Breakpoints", rr_type="double[*]{list}", convert_fn = fix_nested_list)
-        save_result_var("curve_fit", title = "Curve Fit (cartesion)")
-        save_result_var("curve", title = "Curve (cartesian)")
-        save_result_var("curve_fit_js", title = "Curve Fit (joint space)")
+        # save_result_var("curve_js", self.opt_input["input_trajectory"], title= "Input Trajectory (joint space)")
+        # save_result_var("breakpoints", title = "Breakpoints", convert_fn = lambda a: np.array(a, dtype=np.float64))
+        # save_result_var("primitive_choices", title = "Primitive Choices", rr_type="string{list}")
+        # save_result_var("points", title = "Points", rr_type="double[*]{list}", convert_fn = fix_nested_list)
+        # save_result_var("q_bp", title = "Joint Breakpoints", rr_type="double[*]{list}", convert_fn = fix_nested_list)
+        # save_result_var("curve_fit", title = "Curve Fit (cartesion)")
+        # save_result_var("curve", title = "Curve (cartesian)")
+        # save_result_var("curve_fit_js", title = "Curve Fit (joint space)")
 
-        result = self.greedy_fitting_result_type()
-        result.result_global_variables = result_vars
-        self.result= result
+        # result = self.greedy_fitting_result_type()
+        # result.result_global_variables = save_result_var.result_vars
+        # self.result= result
 
 
 
@@ -310,16 +317,23 @@ class GreedyAlgGen:
         if self.run_exp:
             raise self.run_exp
 
-        ret = self.greedy_fitting_status_type()
+        ret = self.motion_opt_status_type()
+        ret.log_output = lines
 
         if log_done:
             ret.action_status = self.completion_status
             ret.result = self.result
+            ret.plots = self.result_plots
             self.closed = True
+
+            if ret.result:
+                if ret.result.result_global_variables:
+                    ret.log_output.append("")
+                    for r in ret.result.result_global_variables:
+                        ret.log_output.append(f"Created global variable: {r.global_name}")
         else:
             ret.action_status = self.completion_status = self.action_codes["running"]
 
-        ret.log_output = lines
  
         return ret
 
@@ -342,11 +356,62 @@ class GreedyAlgGen:
         return
 
 
+class SaveResultVar:
+
+    def __init__(self, variable_storage):
+        self.node = variable_storage.RRGetNode()
+        self.var_storage = variable_storage
+        self.var_consts = self.node.GetConstants('tech.pyri.variable_storage', variable_storage)
+        self.variable_persistence = self.var_consts["VariablePersistence"]
+        self.variable_protection_level = self.var_consts["VariableProtectionLevel"]
+        self.result_vars = []
+        self.opt_var_type = self.node.GetStructureType("tech.pyri.robotics.motion_program_opt.OptResultGlobalVariable")
+
+    def save_result_var(self, opt_output, output_global_name, key, value = None, contents=None,title="",desc="", rr_type= "double[*]", convert_fn = None, suffix = False):
+        if value is None:
+            value = opt_output[key]
+        if convert_fn is not None:
+            value = convert_fn(value)
+        if contents is None:
+            contents = key
+        save_name = output_global_name
+        if suffix:
+            save_name = f"{output_global_name}_{key}"
+        self.var_storage.add_variable2("globals", save_name, rr_type, \
+            RR.VarValue(value,rr_type), ["motion_program_opt"], {}, self.variable_persistence["const"], 
+            None, self.variable_protection_level["read_write"], \
+            [], "Motion program optimization output", False)
+
+        var_info = self.opt_var_type()
+        var_info.var_contents = contents
+        var_info.title = title
+        var_info.global_name = save_name
+        var_info.short_description = desc
+        self.result_vars.append(var_info)
+
+    def save_result_var2(self, opt_output, input_parameters, key, value = None, contents=None,title="",desc="", rr_type= "double[*]", convert_fn = None, suffix = False):
+
+        output_global_name1 = input_parameters.get(f"{key}_global_name", None)
+        if output_global_name1 is None:
+            return
+        
+        assert output_global_name1.datatype == "string", "Output global name must be a string"
+
+        if output_global_name1.data == "":
+            return
+
+        output_global_name = output_global_name1.data
+        
+
+        self.save_result_var(opt_output, output_global_name, key, value, contents, title, desc, rr_type, convert_fn, suffix)
+
+    def __call__(self, *args, **kwargs):
+        self.save_result_var(*args, **kwargs)
+
 
 def main():
 
     parser = argparse.ArgumentParser(description="PyRI Robotics Motion Program Optimization Service")
-    parser.add_argument("--temp-data-dir",type=str,required=False,default=None,help="Location for temporary files. Defaults to $TEMP")
 
     with PyriServiceNodeSetup("tech.pyri.robotics.motion_program_opt", 55922, \
         extra_service_defs=[(__package__,'tech.pyri.robotics.motion_program_opt.robdef'), \
@@ -357,7 +422,7 @@ def main():
         arg_parser=parser) as service_node_setup:
         
         # create object
-        c = RobotMPOpt_impl(service_node_setup.device_manager, temp_data_dir=service_node_setup.argparse_results.temp_data_dir, device_info=service_node_setup.device_info_struct, node = RRN)
+        c = RobotMPOpt_impl(service_node_setup.device_manager, device_info=service_node_setup.device_info_struct, node = RRN)
         # register service with service name "robotics_motion", type "tech.pyri.robotics.motion.RoboticsMotionService",
         # actual object: VisionArucoDetection_inst
         service_node_setup.register_service("robotics_motion_program_opt","tech.pyri.robotics.motion_program_opt.RoboticsMotionProgramOptimizationService",c)
