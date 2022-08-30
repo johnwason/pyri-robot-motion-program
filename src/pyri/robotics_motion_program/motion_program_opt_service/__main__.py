@@ -189,6 +189,8 @@ class MotionOptExec:
             opt_output_fname = data_dir / "motion_opt_output.pickle"
 
             opt_gen = MotionAlgGen(self, opt_process, input_parameters, opt_output_fname, self.device_manager, self.node)
+            opt_gen.log_queue.put(f"Running motion program algorithm {alg_name} at {timestamp}")
+            opt_gen.log_queue.put("")
             opt_gen.start()
             return opt_gen
         finally:

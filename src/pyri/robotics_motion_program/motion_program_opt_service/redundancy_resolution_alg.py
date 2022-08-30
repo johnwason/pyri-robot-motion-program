@@ -15,10 +15,28 @@ def _save_inputs(input_parameters, var_storage, f, node):
 
     pickle.dump(opt_params, f)
 
+def H_to_rr_pose(H, node):
+    geom_util = GeometryUtil(node=node)
+    R = H[0:3,0:3]
+    p = H[0:3,3]
+
+    return geom_util.rox_transform_to_pose(rox.Transform(R,p))
+
+def rr_convert_plots(plots):
+    ret = {k: np.frombuffer(v,dtype=np.uint8) for k, v in plots.items()}
+    return ret
+
 def _load_and_save_result(f, input_parameters, save_result_var, node):
     results = pickle.load(f)
 
-    save_result_var.save_result_var2(results, input_parameters, "curve_js", title = "Generated Trajectory (joint space)")
+    def H_to_rr_pose2(H):
+        return H_to_rr_pose(H,node)
+
+    save_result_var.save_result_var2(results, input_parameters, "curve", title = "Input Curve (position, normal)")
+    save_result_var.save_result_var2(results, input_parameters, "curve_js", title = "Computed Curve (joint space)")
+    save_result_var.save_result_var2(results, input_parameters, "curve_base", title = "Curve in Robot Base Frame (cartesian)")
+    save_result_var.save_result_var2(results, input_parameters, "curve_pose", title= "Curve pose in robot frame (cartesian)", convert_fn = H_to_rr_pose2, rr_type="com.robotraconteur.geometry.Pose")
+    save_result_var.save_result_var2(results, input_parameters, "plots", title = "Saved plots", convert_fn = rr_convert_plots, rr_type="uint8[]{string}")
 
     plots = {
         "j_minimum": np.frombuffer(results["plots"]["j_minimum"],dtype=np.uint8)
