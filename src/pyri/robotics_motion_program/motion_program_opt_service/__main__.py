@@ -63,6 +63,9 @@ class RobotMPOpt_impl(object):
         if algorithm == "redundancy_resolution":
             from .redundancy_resolution_alg import run_redundancy_resolution_algorithm
             return run_redundancy_resolution_algorithm(algorithm, input_parameters, self.device_manager, self._node)
+        elif algorithm == "motion_program_generation":
+            from .motion_program_generation_alg import run_motion_program_generation_algorithm
+            return run_motion_program_generation_algorithm(algorithm, input_parameters, self.device_manager, self._node)
         else:
             assert False, f"Invalid motion program optimization algorithm: {algorithm}"
 

@@ -53,6 +53,8 @@ def main():
     for i in range(len(J_min)):
         plt.plot(lam,J_min[i],label="inv choice "+str(i))
 
+
+    ##############j_singular plot####################
     plt.legend()
     plt.title('Minimum J_SINGULAR')
     j_minimum_io = io.BytesIO()
@@ -60,6 +62,14 @@ def main():
     curve_js=curve_js_all[np.argmin(J_min.min(axis=1))]
 
     curve_base2 = np.concatenate((curve_base,curve_normal_base),axis=1)
+
+    ##############3D plots####################
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    ax.plot3D(curve_base[:,0],curve_base[:,1],curve_base[:,2],'r.-')
+    ax.quiver(curve_base[::20,0],curve_base[::20,1],curve_base[::20,2],curve_normal_base[::20,0],curve_normal_base[::20,1],curve_normal_base[::20,2],length=5, normalize=True)
+    plt.title('Curve Base')
+    curve_3d_io = io.BytesIO()
+    plt.savefig(curve_3d_io,format="svg")
 
     print(f"len(curve_js): {len(curve_js)}")
     print(f"curve_base.shape: {curve_base2.shape}")
@@ -69,7 +79,8 @@ def main():
         "curve_base": curve_base2,
         "curve_pose": H,
         "plots": {
-            "j_minimum": j_minimum_io.getvalue()
+            "j_minimum": j_minimum_io.getvalue(),
+            "curve_3d": curve_3d_io.getvalue()
         }
     }
 

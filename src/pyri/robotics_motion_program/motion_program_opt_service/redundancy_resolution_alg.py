@@ -39,7 +39,8 @@ def _load_and_save_result(f, input_parameters, save_result_var, node):
     save_result_var.save_result_var2(results, input_parameters, "plots", title = "Saved plots", convert_fn = rr_convert_plots, rr_type="uint8[]{string}")
 
     plots = {
-        "j_minimum": np.frombuffer(results["plots"]["j_minimum"],dtype=np.uint8)
+        "j_minimum": np.frombuffer(results["plots"]["j_minimum"],dtype=np.uint8),
+        "curve_3d": np.frombuffer(results["plots"]["curve_3d"],dtype=np.uint8)
     }
 
     result = node.GetStructureType("tech.pyri.robotics.motion_program_opt.MotionOptResult")()
