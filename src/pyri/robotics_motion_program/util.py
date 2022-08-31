@@ -140,7 +140,9 @@ class tooldata(NamedTuple):
     tload : loaddata
 
 quatR = rox.R2q(rox.rot([0,1,0],np.deg2rad(30)))
-tool1_abb=tooldata(True,pose([75,0,493.30127019],[quatR[0],quatR[1],quatR[2],quatR[3]]),loaddata(1,[0,0,0.001],[1,0,0,0],0.001,0.001,0.001))
+robot = abb6640(d=50)
+R90=rox.rot([0,1,0],np.pi/2)  
+tool1_abb=tool=tooldata(True,pose(R90.T@robot.p_tool,rox.R2q(robot.R_tool@R90.T)),loaddata(1,[0,0,0.001],[1,0,0,0],0,0,0))
 
 class ConvertMotionProgram:
 
@@ -328,3 +330,26 @@ class ConvertMotionProgram:
         rr_pose[0]["translation"]["y"] = point[1]*1e-3
         rr_pose[0]["translation"]["z"] = point[2]*1e-3
         return rr_pose
+
+def fill_curve_plot(ax, curve, nominal_curve = None):
+    ax.plot(curve[:,0],curve[:,1],curve[:,2])
+        
+    pos_min = curve.min(axis=0)
+    pos_max = curve.max(axis=0)
+    if nominal_curve is not None:
+        nom_pos_min = nominal_curve.min(axis=0)
+        nom_pos_max = nominal_curve.max(axis=0)
+
+        pos_min = np.vstack((pos_min,nom_pos_min)).min(axis=0)
+        pos_min = np.vstack((pos_max,nom_pos_max)).min(axis=0)
+
+        ax.plot(nominal_curve[:,0],nominal_curve[:,1],nominal_curve[:,2],color='red')
+        ax.legend(["Output", "Nominal"])
+
+    pos_diff = (pos_max - pos_min).max()
+    pos_center = (pos_max + pos_min) / 2.0
+    ax_min = pos_center - pos_diff/2.0
+    ax_max = pos_center + pos_diff/2.0
+    ax.set_xlim(left=ax_min[0],right=ax_max[0])
+    ax.set_ylim(bottom=ax_min[1],top=ax_max[1])
+    ax.set_zlim(bottom=ax_min[2],top=ax_max[2])

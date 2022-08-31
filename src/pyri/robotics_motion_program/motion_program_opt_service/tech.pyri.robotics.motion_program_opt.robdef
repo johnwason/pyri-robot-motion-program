@@ -36,6 +36,13 @@ struct MotionOptStatus
     field uint8[]{string} plots
 end
 
+struct MotionProgramExecStatus
+    field ActionStatusCode action_status
+    field int32 current_command
+    field string{list} log_output
+    field uint8[]{string} plots
+end
+
 object RoboticsMotionProgramOptimizationService
     implements Device
 
@@ -47,4 +54,7 @@ object RoboticsMotionProgramOptimizationService
 
     property DeviceInfo device_info [readonly,nolock]
     function MotionOptStatus{generator} motion_program_opt(string algorithm, varvalue{string} input_parameters)
+
+    function MotionProgramExecStatus{generator} motion_program_exec(string robot_local_device_name, \
+        string motion_program_global_name, varvalue{string} exec_parameters)
 end

@@ -1,5 +1,6 @@
 from datetime import datetime
 import importlib
+import io
 from pathlib import Path
 import pickle
 import queue
@@ -27,6 +28,7 @@ import os
 import importlib_resources
 import tempfile
 from .. import util
+import matplotlib.pyplot as plt
 
 
 class RobotMPOpt_impl(object):
@@ -120,6 +122,22 @@ class RobotMPOpt_impl(object):
         #     "blend_radius": blend_radius,
         #     "velocity": velocity
         # }
+
+    def motion_program_exec(self, robot_local_device_name, motion_program_global_name, exec_parameters):
+
+        timestamp = datetime.now().strftime("%Y-%m-%d--%H-%M-%S.%f")
+
+        print(f"timestamp: {timestamp}")
+
+        robot_mp = self.device_manager.get_device_client(robot_local_device_name,0.1)
+        var_storage = self.device_manager.get_device_client("variable_storage",0.1)
+
+        motion_program = var_storage.getf_variable_value("globals",motion_program_global_name)
+        exec_mp_gen = robot_mp.execute_motion_program_log(motion_program.data)
+
+        gen = ExecuteMotionProgramGen(robot_mp, exec_mp_gen, exec_parameters, self.device_manager)
+
+        return gen
 
 
 class MotionOptExec:
@@ -412,6 +430,104 @@ class SaveResultVar:
 
     def __call__(self, *args, **kwargs):
         self.save_result_var(*args, **kwargs)
+
+class ExecuteMotionProgramGen:
+    def __init__(self, robot_mp, exec_mp_gen, exec_parameters, device_manager):
+        self.robot_mp = robot_mp
+        self.exec_mp_gen = exec_mp_gen
+        self.exec_parameters = exec_parameters
+        self.exec_mp_gen_closed = False
+        self.closed = False
+        self.action_status_code = RRN.GetConstants("com.robotraconteur.action")["ActionStatusCode"]
+        self.exec_status_type = RRN.GetStructureType("tech.pyri.robotics.motion_program_opt.MotionProgramExecStatus")
+        self.device_manager = device_manager
+        self.started = False
+
+    def Next(self):
+        if self.closed:
+            raise RR.StopIterationException("")
+        mp_ret = self.exec_mp_gen.Next()
+        ret = self.exec_status_type()
+        ret.action_status = mp_ret.action_status
+        ret.current_command = mp_ret.current_command
+        ret.log_output = []
+        ret.plots = {}
+        if not self.started:
+            ret.log_output.append("Starting motion program execution")
+            self.started = True
+        if mp_ret.action_status == self.action_status_code["complete"]:
+            try:
+                save_mp_exec_results(self.robot_mp, self.device_manager, ret, mp_ret, self.exec_parameters)
+                ret.log_output.append("Done!")
+            finally:
+                try:
+                    self.exec_mp_gen_closed = True
+                    self.exec_mp_gen.Close()
+                except:
+                    pass
+            self.closed = True
+        return ret
+
+    def Close(self):
+        if not self.exec_mp_gen_closed:
+            self.exec_mp_gen.Close()
+
+    def Abort(self):
+        self.exec_mp_gen.Abort()
+
+def save_mp_exec_results(robot_mp, device_manager, ret, mp_ret, exec_parameters):
+
+    #TODO: handle case where log is more than one part
+    robot_log1 = robot_mp.read_log(mp_ret.log_handle).NextAll()[0]
+    robot_log = np.hstack((np.expand_dims(robot_log1.time,1), np.expand_dims(robot_log1.command_number.astype(np.float64),1), robot_log1.joints))
+
+    var_storage = device_manager.get_device_client("variable_storage",1)
+    save_result_var = SaveResultVar(var_storage)
+
+    save_result_var.save_result_var2({}, exec_parameters, "joint_log", value = robot_log, title="Robot motion execution joint position log")
+
+    for r in save_result_var.result_vars:
+        ret.log_output.append(f"Created global variable: {r.global_name}")
+
+    robot = util.abb6640(d=50)
+
+    fig = plt.figure()
+    plt.plot(robot_log1.time, robot_log1.joints)
+    plt.title("Joint Position Log")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Position (deg)")
+    plt.legend([f"Joint {i+1}" for i in range(robot_log1.joints.shape[1])])
+
+    joint_plot_io = io.BytesIO()
+    plt.savefig(joint_plot_io,format="svg")
+
+    pos = np.array([robot.fwd(np.deg2rad(q)).p for q in robot_log1.joints])
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlabel("X (mm)")
+    ax.set_ylabel("Y (mm)")
+    ax.set_zlabel("Z (mm)")
+
+    nominal_curve_global_name = exec_parameters.get("nominal_curve_global_name", None)
+    if nominal_curve_global_name:
+        nominal_curve = var_storage.get_variable_value("globals", nominal_curve_global_name).data
+
+    util.fill_curve_plot(ax, pos)
+
+    #ax.set_box_aspect((world_limits[1]-world_limits[0],world_limits[3]-world_limits[2],world_limits[5]-world_limits[4]))
+    plt.title("Output Position Curve")
+
+    curve_plot_io = io.BytesIO()
+    plt.savefig(curve_plot_io,format="svg")
+
+    ret.plots = {
+        "joints": np.frombuffer(joint_plot_io.getvalue(),dtype=np.uint8),
+        "curve": np.frombuffer(curve_plot_io.getvalue(),dtype=np.uint8)
+    }
+
+    
+
 
 
 def main():
