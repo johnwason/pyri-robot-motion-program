@@ -22,7 +22,7 @@ def motion_program_generation(curve_js, robot, total_seg):
     p_bp = [[robot.fwd(curve_js[0]).p]]
     for i in range(step,len(curve_js),step):
         breakpoints.append(i)
-        primitives.append('movel_fit')
+        primitives.append('movej_fit')
         q_bp.append([curve_js[i]])
         p_bp.append([robot.fwd(curve_js[i]).p])
 

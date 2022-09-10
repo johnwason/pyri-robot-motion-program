@@ -511,9 +511,9 @@ def save_mp_exec_results(robot_mp, device_manager, ret, mp_ret, exec_parameters)
 
     nominal_curve_global_name = exec_parameters.get("nominal_curve_global_name", None)
     if nominal_curve_global_name:
-        nominal_curve = var_storage.get_variable_value("globals", nominal_curve_global_name).data
+        nominal_curve = var_storage.getf_variable_value("globals", nominal_curve_global_name.data).data
 
-    util.fill_curve_plot(ax, pos)
+    util.fill_curve_plot(ax, pos, nominal_curve[:,0:3])
 
     #ax.set_box_aspect((world_limits[1]-world_limits[0],world_limits[3]-world_limits[2],world_limits[5]-world_limits[4]))
     plt.title("Output Position Curve")
@@ -521,11 +521,12 @@ def save_mp_exec_results(robot_mp, device_manager, ret, mp_ret, exec_parameters)
     curve_plot_io = io.BytesIO()
     plt.savefig(curve_plot_io,format="svg")
 
+    # retf_out.write(f_in.readline())
+
     ret.plots = {
         "joints": np.frombuffer(joint_plot_io.getvalue(),dtype=np.uint8),
         "curve": np.frombuffer(curve_plot_io.getvalue(),dtype=np.uint8)
     }
-
     
 
 

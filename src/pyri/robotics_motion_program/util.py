@@ -341,7 +341,7 @@ def fill_curve_plot(ax, curve, nominal_curve = None):
         nom_pos_max = nominal_curve.max(axis=0)
 
         pos_min = np.vstack((pos_min,nom_pos_min)).min(axis=0)
-        pos_min = np.vstack((pos_max,nom_pos_max)).min(axis=0)
+        pos_max = np.vstack((pos_max,nom_pos_max)).max(axis=0)
 
         ax.plot(nominal_curve[:,0],nominal_curve[:,1],nominal_curve[:,2],color='red')
         ax.legend(["Output", "Nominal"])
