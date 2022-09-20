@@ -355,7 +355,7 @@ class MotionAlgGen:
                     for r in ret.result.result_global_variables:
                         ret.log_output.append(f"Created global variable: {r.global_name}")
         else:
-            ret.action_status = self.completion_status = self.action_codes["running"]
+            ret.action_status = self.action_codes["running"]
 
  
         return ret
