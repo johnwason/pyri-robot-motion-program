@@ -56,5 +56,5 @@ object RoboticsMotionProgramOptimizationService
     function MotionOptStatus{generator} motion_program_opt(string algorithm, varvalue{string} input_parameters)
 
     function MotionProgramExecStatus{generator} motion_program_exec(string robot_local_device_name, \
-        string motion_program_global_name, varvalue{string} exec_parameters)
+        string tool_local_device_name, string motion_program_global_name, varvalue{string} exec_parameters)
 end

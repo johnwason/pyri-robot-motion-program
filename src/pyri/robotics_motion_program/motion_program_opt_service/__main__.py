@@ -41,8 +41,8 @@ class RobotMPOpt_impl(object):
         self._node.RequestTimeout = 1000000
         self.device_info = device_info
         self.device_manager = device_manager
-        self.device_manager.connect_device_type("experimental.robotics.motion_program.MotionProgramRobot")
-        self.device_manager.connect_device_type("tech.pyri.variable_storage.VariableStorage")
+        # self.device_manager.connect_device_type("experimental.robotics.motion_program.MotionProgramRobot")
+        # self.device_manager.connect_device_type("tech.pyri.variable_storage.VariableStorage")
 
         self.service_path = None
         self.ctx = None
@@ -123,19 +123,43 @@ class RobotMPOpt_impl(object):
         #     "velocity": velocity
         # }
 
-    def motion_program_exec(self, robot_local_device_name, motion_program_global_name, exec_parameters):
+    def motion_program_exec(self, robot_local_device_name, tool_local_device_name,
+        motion_program_global_name, exec_parameters):
 
         timestamp = datetime.now().strftime("%Y-%m-%d--%H-%M-%S.%f")
 
         print(f"timestamp: {timestamp}")
 
         robot_mp = self.device_manager.get_device_client(robot_local_device_name,0.1)
+        tool_mp = self.device_manager.get_device_client(tool_local_device_name,0.1)
+
+        robot_info = robot_mp.robot_info
+        tool_info = tool_mp.tool_info
+
+        rox_robot = self._robot_util.robot_info_to_rox_robot(robot_info,0)
+        tool_T = self._geom_util.transform_to_rox_transform(tool_info.tcp)
+        rox_robot.R_tool = tool_T.R
+        rox_robot.p_tool = tool_T.p
+
         var_storage = self.device_manager.get_device_client("variable_storage",0.1)
 
         motion_program = var_storage.getf_variable_value("globals",motion_program_global_name)
-        exec_mp_gen = robot_mp.execute_motion_program_log(motion_program.data)
 
-        gen = ExecuteMotionProgramGen(robot_mp, exec_mp_gen, exec_parameters, self.device_manager)
+        robot_mp_state,_ = robot_mp.motion_program_robot_state.PeekInValue()
+
+        node = robot_mp.RRGetNode()
+        mp_const = node.GetConstants("experimental.robotics.motion_program",robot_mp)
+        mp_flags = mp_const["MotionProgramRobotStateFlags"]
+
+        if (robot_mp_state.motion_program_robot_state_flags & mp_flags["motion_program_mode_enabled"]) == 0:
+            robot_mp.disable_motion_program_mode()
+            time.sleep(0.1)
+            robot_mp.enable_motion_program_mode()
+
+
+        exec_mp_gen = robot_mp.execute_motion_program_record(motion_program.data, False)
+
+        gen = ExecuteMotionProgramGen(robot_mp, exec_mp_gen, exec_parameters, self.device_manager, rox_robot)
 
         return gen
 
@@ -148,14 +172,11 @@ class MotionOptExec:
         self.load_and_save_result_fn = load_and_save_result_fn
         self.load_progress_fn = load_progress_fn
 
-        opt_python_exe = os.environ.get("PYRI_MOTION_PROGRAM_OPT_PYTHON_EXE",None)
-        opt_motion_dir = os.environ.get("PYRI_MOTION_PROGRAM_OPT_DIR",None)
-
+        opt_python_exe = os.environ.get("PYRI_MOTION_PROGRAM_OPT_PYTHON_EXE",sys.executable)
+        
         assert opt_python_exe, "PYRI_MOTION_PROGRAM_OPT_PYTHON_EXE must point to Python executable for greedy algorithm"
-        assert opt_motion_dir, "PYRI_MOTION_PROGRAM_OPT_DIR must point to root of the motion optimization repository"
 
         self.opt_python_exe = opt_python_exe
-        self.opt_motion_dir = opt_motion_dir
 
 
     def run_alg(self, alg_name, alg_script_fname, input_parameters, py_subdirs = [], cwd = None):
@@ -178,38 +199,24 @@ class MotionOptExec:
                 data_dir.mkdir(exist_ok=True)
 
             with open(data_dir / "motion_opt_input.pickle", "wb") as f:
-                self.save_input_parameters_fn(input_parameters, var_storage, f, self.node)
+                opt_params = self.save_input_parameters_fn(self.device_manager, input_parameters, var_storage, f, self.node)
 
             opt_python_exe = Path(self.opt_python_exe)
-            opt_motion_dir = Path(self.opt_motion_dir)
-
-            if cwd is not None:
-                cwd = Path(cwd)
-                if not cwd.is_absolute():
-                    cwd = opt_motion_dir / cwd
-            else:
-                cwd = opt_motion_dir
-
+            
             sub_env = copy.copy(os.environ)
             # if "PYTHONPATH" in sub_env:
             #     del sub_env["PYTHONPATH"]
-
-            
-            py_path = [str(opt_motion_dir)]
-            for py_subdir1 in py_subdirs:
-                py_path.append(str(opt_motion_dir / py_subdir1))
-            sub_env["PYTHONPATH"] = os.pathsep.join(py_path)
-
+                        
             opt_script = importlib_resources.files(__package__) / "opt_scripts" / alg_script_fname
 
             #subprocess.check_call([opt_python_exe, opt_script, data_dir],cwd=cwd, env=sub_env)
 
             opt_process = subprocess.Popen([opt_python_exe, opt_script, data_dir], stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, cwd=cwd, env=sub_env)
+                stderr=subprocess.STDOUT, cwd=data_dir, env=sub_env)
 
             opt_output_fname = data_dir / "motion_opt_output.pickle"
 
-            opt_gen = MotionAlgGen(self, opt_process, input_parameters, opt_output_fname, self.device_manager, self.node)
+            opt_gen = MotionAlgGen(self, opt_process, input_parameters, opt_params, opt_output_fname, self.device_manager, self.node)
             opt_gen.log_queue.put(f"Running motion program algorithm {alg_name} at {timestamp}")
             opt_gen.log_queue.put("")
             opt_gen.start()
@@ -221,9 +228,10 @@ class MotionOptExec:
     
 
 class MotionAlgGen:
-    def __init__(self,opt_exec,opt_process,input_parameters,opt_output_fname,device_manager,node):
+    def __init__(self,opt_exec,opt_process,input_parameters,opt_params,opt_output_fname,device_manager,node):
         self.opt_exec = opt_exec
         self.opt_process = opt_process
+        self.opt_params = opt_params
         self.node = node
         self.device_manager = device_manager
         self.input_parameters = input_parameters
@@ -277,7 +285,7 @@ class MotionAlgGen:
         save_result_var = SaveResultVar(var_storage)
         
         with open(self.opt_output_fname, "rb") as f:
-            self.result, self.result_plots = self.opt_exec.load_and_save_result_fn(f, self.input_parameters, save_result_var, self.node)
+            self.result, self.result_plots = self.opt_exec.load_and_save_result_fn(f, self.input_parameters, self.opt_params, save_result_var, self.node)
 
        
         # # TODO: Use non-hardcoded robot and tool
@@ -432,8 +440,9 @@ class SaveResultVar:
         self.save_result_var(*args, **kwargs)
 
 class ExecuteMotionProgramGen:
-    def __init__(self, robot_mp, exec_mp_gen, exec_parameters, device_manager):
+    def __init__(self, robot_mp, exec_mp_gen, exec_parameters, device_manager, rox_robot):
         self.robot_mp = robot_mp
+        self.rox_robot = rox_robot
         self.exec_mp_gen = exec_mp_gen
         self.exec_parameters = exec_parameters
         self.exec_mp_gen_closed = False
@@ -457,7 +466,7 @@ class ExecuteMotionProgramGen:
             self.started = True
         if mp_ret.action_status == self.action_status_code["complete"]:
             try:
-                save_mp_exec_results(self.robot_mp, self.device_manager, ret, mp_ret, self.exec_parameters)
+                save_mp_exec_results(self.robot_mp, self.device_manager, ret, mp_ret, self.exec_parameters, self.rox_robot)
                 ret.log_output.append("Done!")
             finally:
                 try:
@@ -475,10 +484,10 @@ class ExecuteMotionProgramGen:
     def Abort(self):
         self.exec_mp_gen.Abort()
 
-def save_mp_exec_results(robot_mp, device_manager, ret, mp_ret, exec_parameters):
+def save_mp_exec_results(robot_mp, device_manager, ret, mp_ret, exec_parameters, rox_robot):
 
     #TODO: handle case where log is more than one part
-    robot_log1 = robot_mp.read_log(mp_ret.log_handle).NextAll()[0]
+    robot_log1 = robot_mp.read_recording(mp_ret.recording_handle).NextAll()[0]
     robot_log = np.hstack((np.expand_dims(robot_log1.time,1), np.expand_dims(robot_log1.command_number.astype(np.float64),1), robot_log1.joints))
 
     var_storage = device_manager.get_device_client("variable_storage",1)
@@ -489,10 +498,9 @@ def save_mp_exec_results(robot_mp, device_manager, ret, mp_ret, exec_parameters)
     for r in save_result_var.result_vars:
         ret.log_output.append(f"Created global variable: {r.global_name}")
 
-    robot = util.abb6640(d=50)
-
+    
     fig = plt.figure()
-    plt.plot(robot_log1.time, robot_log1.joints)
+    plt.plot(robot_log1.time, np.rad2deg(robot_log1.joints))
     plt.title("Joint Position Log")
     plt.xlabel("Time (s)")
     plt.ylabel("Position (deg)")
@@ -501,7 +509,7 @@ def save_mp_exec_results(robot_mp, device_manager, ret, mp_ret, exec_parameters)
     joint_plot_io = io.BytesIO()
     plt.savefig(joint_plot_io,format="svg")
 
-    pos = np.array([robot.fwd(np.deg2rad(q)).p for q in robot_log1.joints])
+    pos = np.array([rox.fwdkin(rox_robot,q).p for q in robot_log1.joints])
     
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -537,9 +545,11 @@ def main():
 
     with PyriServiceNodeSetup("tech.pyri.robotics.motion_program_opt", 55922, \
         extra_service_defs=[(__package__,'tech.pyri.robotics.motion_program_opt.robdef'), \
-        ('pyri.robotics_motion_program','experimental.robotics.motion_program.robdef')], \
+        ('pyri.robotics_motion_program','experimental.robotics.motion_program.robdef'),
+        ('pyri.robotics_motion_program','experimental.abb_robot.robdef'),
+        ('pyri.robotics_motion_program','experimental.abb_robot.motion_program.robdef')], \
         default_info = (__package__,"pyri_robotics_motion_program_opt_service_default_info.yml"), \
-        display_description="PyRI Robotics Motion Program Optimization Service", device_manager_autoconnect=False, \
+        display_description="PyRI Robotics Motion Program Optimization Service", device_manager_autoconnect=True, \
         distribution_name="pyri-robotics-motion-program",
         arg_parser=parser) as service_node_setup:
         

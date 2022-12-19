@@ -3,13 +3,11 @@ import sys, traceback
 from general_robotics_toolbox import *
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-sys.path.append('../toolbox')
-from robots_def import *
-from utils import *
-from lambda_calc import *
 from pathlib import Path
 import pickle
-from baseline import *
+from robot_motion_program_opt.redundancy_resolution import redundancy_resolution_baseline
+from pyri.robotics_motion_program.motion_program_opt_service.opt_script_util import load_rox_robot_obj
+
 #from pandas import *
 import io
 
@@ -23,45 +21,12 @@ def main():
     print(f"input curve.shape: {opt_params['curve'].shape}")
 
     ###read in curves
-    curve = opt_params["curve"]
-    lam=calc_lam_cs(curve)
-    robot=abb6640(d=50)
-
-    print("OPTIMIZING ON CURVE POSE")
-    H=pose_opt(robot,curve[:,:3],curve[:,3:])
-    print(H)
-
     
-    curve_base,curve_normal_base=curve_frame_conversion(curve[:,:3],curve[:,3:],H)
-    # visualize_curve_w_normal(curve_base,curve_normal_base,equal_axis=True)
+    curve = opt_params["curve"]
 
-    ###get all inv solutions
-    print("FIND ALL POSSIBLE INV SOLUTIONS")
-    curve_js_all=find_js(robot,curve_base,curve_normal_base)
-    print('num solutions available: ',len(curve_js_all))
-    if len(curve_js_all)==0:
-        return
-
-    ###get best with max(min(J_sing))
-    print("FIND BEST CURVE_JS ON MIN(J_SINGULAR)")
-    J_min=[]
-    for i in range(len(curve_js_all)):
-        J_min.append(find_j_min(robot,curve_js_all[i]))
-
-    J_min=np.array(J_min)
-    plt.figure()
-    for i in range(len(J_min)):
-        plt.plot(lam,J_min[i],label="inv choice "+str(i))
-
-
-    ##############j_singular plot####################
-    plt.legend()
-    plt.title('Minimum J_SINGULAR')
-    j_minimum_io = io.BytesIO()
-    plt.savefig(j_minimum_io,format="svg")
-    curve_js=curve_js_all[np.argmin(J_min.min(axis=1))]
-
-    curve_base2 = np.concatenate((curve_base,curve_normal_base),axis=1)
+    robot = load_rox_robot_obj(opt_params)
+    
+    curve_base,curve_normal_base,curve_js,H=redundancy_resolution_baseline(curve, robot)
 
     ##############3D plots####################
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
@@ -71,6 +36,8 @@ def main():
     curve_3d_io = io.BytesIO()
     plt.savefig(curve_3d_io,format="svg")
 
+    curve_base2 = np.concatenate((curve_base,curve_normal_base),axis=1)
+
     print(f"len(curve_js): {len(curve_js)}")
     print(f"curve_base.shape: {curve_base2.shape}")
     output = {
@@ -79,7 +46,6 @@ def main():
         "curve_base": curve_base2,
         "curve_pose": H,
         "plots": {
-            "j_minimum": j_minimum_io.getvalue(),
             "curve_3d": curve_3d_io.getvalue()
         }
     }

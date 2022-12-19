@@ -13,7 +13,8 @@ setup(
     zip_safe=False,
     install_requires=[
         'pyri-common',
-        'pyri-robotics'
+        'pyri-robotics',
+        'robot-motion-program-opt[robotraconteur]'
     ],
     entry_points = {
         'pyri.plugins.sandbox_functions': ['pyri-robotics-sandbox-functions=pyri.robotics_motion_program.sandbox_functions:get_sandbox_functions_factory'],

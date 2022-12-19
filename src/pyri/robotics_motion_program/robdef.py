@@ -19,4 +19,5 @@ def get_robdef_factory():
     return RoboticsMPRobDefPluginFactory()
 
 def get_robotics_mp_robdef():
-    return robdef_util.get_service_types_from_resources(__package__,["experimental.robotics.motion_program"])
+    return robdef_util.get_service_types_from_resources(__package__,["experimental.robotics.motion_program", 
+        "experimental.abb_robot", "experimental.abb_robot.motion_program"])
