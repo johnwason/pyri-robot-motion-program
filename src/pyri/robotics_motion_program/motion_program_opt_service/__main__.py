@@ -1,11 +1,14 @@
+from contextlib import suppress
 from datetime import datetime
 import importlib
 import io
 from pathlib import Path
 import pickle
 import queue
+import re
 import subprocess
 import sys
+import traceback
 import RobotRaconteur as RR
 RRN=RR.RobotRaconteurNode.s
 import numpy as np
@@ -68,6 +71,9 @@ class RobotMPOpt_impl(object):
         elif algorithm == "motion_program_generation":
             from .motion_program_generation_alg import run_motion_program_generation_algorithm
             return run_motion_program_generation_algorithm(algorithm, input_parameters, self.device_manager, self._node)
+        elif algorithm == "motion_program_update":
+            from .motion_program_update_alg import run_motion_program_update_algorithm
+            return run_motion_program_update_algorithm(algorithm, input_parameters, self.device_manager, self._node)
         else:
             assert False, f"Invalid motion program optimization algorithm: {algorithm}"
 
@@ -216,7 +222,7 @@ class MotionOptExec:
 
             opt_output_fname = data_dir / "motion_opt_output.pickle"
 
-            opt_gen = MotionAlgGen(self, opt_process, input_parameters, opt_params, opt_output_fname, self.device_manager, self.node)
+            opt_gen = MotionAlgGen(self, opt_process, input_parameters, opt_params, opt_output_fname, self.device_manager, data_dir, self.node)
             opt_gen.log_queue.put(f"Running motion program algorithm {alg_name} at {timestamp}")
             opt_gen.log_queue.put("")
             opt_gen.start()
@@ -228,7 +234,7 @@ class MotionOptExec:
     
 
 class MotionAlgGen:
-    def __init__(self,opt_exec,opt_process,input_parameters,opt_params,opt_output_fname,device_manager,node):
+    def __init__(self,opt_exec,opt_process,input_parameters,opt_params,opt_output_fname,device_manager,data_dir,node):
         self.opt_exec = opt_exec
         self.opt_process = opt_process
         self.opt_params = opt_params
@@ -242,11 +248,13 @@ class MotionAlgGen:
         self.action_codes = self.node.GetConstants("com.robotraconteur.action")["ActionStatusCode"]
         self.completion_status=self.action_codes["error"]
         self.log_queue = queue.Queue()
+        self.plots_queue = queue.Queue()
         self.motion_opt_result_type = self.node.GetStructureType("tech.pyri.robotics.motion_program_opt.MotionOptResult")
         self.motion_opt_status_type = self.node.GetStructureType("tech.pyri.robotics.motion_program_opt.MotionOptStatus")
         self.run_exp = None
         self.result = None
         self.result_plots = None
+        self.data_dir = data_dir
 
     def start(self):
         self.thread = threading.Thread(target=self._run)
@@ -273,6 +281,20 @@ class MotionAlgGen:
                 
                 line = self.opt_process.stdout.readline()
                 if len(line) > 0:
+                    try:
+                        fig_match = re.search(r"Output figure saved: (motion_opt_figure\d+.pickle)", line.decode('utf-8'))
+                        if fig_match is not None:
+                            with open(self.data_dir / fig_match.group(1), "rb") as iter_figs_f:
+                                iter_figs = pickle.load(iter_figs_f)
+                                for k,v in iter_figs["figures"].items():
+                                    for i in range(len(v)):
+                                        if i == 0:
+                                            fig_name = k
+                                        else:
+                                            fig_name = f"{k}_fig{i+1}"
+                                        self.plots_queue.put((fig_name,np.frombuffer(v[i],dtype=np.uint8)))
+                    except:
+                        traceback.print_exc()
                     self.log_queue.put(line.decode('utf-8'))
                 else:
                     time.sleep(0.01)
@@ -326,6 +348,7 @@ class MotionAlgGen:
             raise self.run_exp
         
         lines = []
+        plots = {}
 
         queue_get_timeout = 2.5
         log_done = False
@@ -338,7 +361,14 @@ class MotionAlgGen:
                     lines.append(line.rstrip())
                 else:
                     log_done = True
-                    break
+                    break                
+                
+                with suppress(queue.Empty):
+                    while True:
+                        plot_name, plot = self.plots_queue.get(block=False)
+                        print(f"Got plot {plot_name}")
+                        plots[plot_name] = plot
+
         except queue.Empty:
             pass
 
@@ -350,11 +380,13 @@ class MotionAlgGen:
 
         ret = self.motion_opt_status_type()
         ret.log_output = lines
+        ret.plots = plots
 
         if log_done:
             ret.action_status = self.completion_status
             ret.result = self.result
-            ret.plots = self.result_plots
+            if self.result_plots is not None:
+                ret.plots.update(self.result_plots)
             self.closed = True
 
             if ret.result:
