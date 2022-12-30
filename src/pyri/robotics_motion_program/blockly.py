@@ -15,7 +15,7 @@ def _get_blocks() -> Dict[str,PyriBlocklyBlock]:
                         {
                         "type": "field_input",
                         "name": "ROBOT_NAME",
-                        "text": "robot_mp"
+                        "text": "robot"
                         }
                     ],
                     "previousStatement": None,
@@ -25,6 +25,27 @@ def _get_blocks() -> Dict[str,PyriBlocklyBlock]:
                     "helpUrl": ""
                     },
         sandbox_function=(sandbox_functions.robot_mp_set_active_robot,"ROBOT_NAME")
+    )
+
+    add_blockly_block(blocks,
+        category = "Motion Program",
+        blockly_json = {
+                    "type": "robot_mp_set_active_tool",
+                    "message0": "set active motion program tool %1",
+                    "args0": [
+                        {
+                        "type": "field_input",
+                        "name": "TOOL_NAME",
+                        "text": "tool"
+                        }
+                    ],
+                    "previousStatement": None,
+                    "nextStatement": None,
+                    "colour": 340,
+                    "tooltip": "Set active motion program tool by device name",
+                    "helpUrl": ""
+                    },
+        sandbox_function=(sandbox_functions.robot_mp_set_active_tool,"TOOL_NAME")
     )
 
     add_blockly_block(blocks,
