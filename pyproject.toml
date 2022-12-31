@@ -1,0 +1,55 @@
+[project]
+
+name = "pyri-robotics-motion-program"
+version = "0.2.0"
+description = "PyRI Teach Pendant Robotics Motion Program Package"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE.txt"}
+keywords = ["pyodide", "pyri-project", "pyri-runtime-package", "robotics"]
+authors = [
+    {name = "John Wason", email = "wason@wasontech.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Scientific/Engineering"
+]
+
+dependencies = [
+    'pyri-common',
+    'pyri-robotics',
+    'robot-motion-program-opt[robotraconteur]'
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-asyncio"
+]
+
+[project.urls]
+homepage="http://pyri.tech"
+repository="https://github.com/pyri-project/pyri-robotics-motion-program"
+
+[project.scripts]
+pyri-robotics-motion-program-opt-service = "pyri.robotics_motion_program.motion_program_opt_service.__main__:main"
+
+[project.entry-points."pyri.plugins.webui_server"]
+pyri-robotics-motion-program-webui-server = "pyri.robotics_motion_program.webui_server:get_webui_factory"
+
+[project.entry-points."pyri.plugins.sandbox_functions"]
+pyri-robotics-motion-program-sandbox-functions = "pyri.robotics_motion_program.sandbox_functions:get_sandbox_functions_factory"
+
+[project.entry-points."pyri.plugins.blockly"]
+pyri-robotics-motion-program-plugin-blockly = "pyri.robotics_motion_program.blockly:get_blockly_factory"
+
+[project.entry-points."pyri.plugins.robdef"]
+pyri-robotics-motion-program-robdef = "pyri.robotics_motion_program.robdef:get_robdef_factory"
+
+[build-system]
+build-backend = 'setuptools.build_meta'
+requires = [
+    'setuptools',
+    'toml',
+]
