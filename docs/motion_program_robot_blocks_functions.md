@@ -128,3 +128,10 @@ Set the active motion program tool. The default tool device name is `tool`.
 Parameters:
 
 * tool_name (str): The tool local device name
+
+## robot_mp_load
+
+    robot_mp_load(motion_program)
+
+Loads a motion program from a variable. Use `global_value_get()` to retrieve the global variable and pass to this
+function. The motion program can then be executed using `robot_mp_execute()`
