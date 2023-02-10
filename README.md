@@ -73,6 +73,11 @@ This service may use any standard `--robotraconteur-*` service node options.
 
 This service uses the `DeviceManagerClient`, which needs to connect to the device manager service to find other devices. This can be done using discovery based on a Robot Raconteur device identifier, or using a specified Robot Raconteur URL. If neither is specified, the `DeviceManagerClient` will search for the identifier named `pyri_device_manager` on the local machine.
 
+## Motion Program Optimization WebUI
+
+A WebUI panel is available for motion program optimization. See
+[motion_program_opt_gui.md](docs/motion_program_opt_gui.md) for more information.
+
 ## Acknowledgment
 
 This work was supported in part by Subaward No. ARM-TEC-19-01-F-24 from the Advanced Robotics for Manufacturing ("ARM") Institute under Agreement Number W911NF-17-3-0004 sponsored by the Office of the Secretary of Defense. ARM Project Management was provided by Christopher Adams. The views and conclusions contained in this document are those of the authors and should not be interpreted as representing the official policies, either expressed or implied, of either ARM or the Office of the Secretary of Defense of the U.S. Government. The U.S. Government is authorized to reproduce and distribute reprints for Government purposes, notwithstanding any copyright notation herein.
