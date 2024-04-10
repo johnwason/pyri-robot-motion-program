@@ -1,7 +1,7 @@
 [project]
 
 name = "pyri-robotics-motion-program"
-version = "0.2.0"
+version = "0.3.0"
 description = "PyRI Teach Pendant Robotics Motion Program Package"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
     'pyri-common',
     'pyri-robotics',
-    'robot-motion-program-opt[robotraconteur]'
+    # 'robot-motion-program-opt[robotraconteur]'
 ]
 
 [project.optional-dependencies]
@@ -53,3 +53,7 @@ requires = [
     'setuptools',
     'toml',
 ]
+
+[tool.setuptools.package-data]
+'pyri.robotics_motion_program' = ['*.robdef','*.js','*.yml']
+'pyri.robotics_motion_program.webui_static' = ['*.robdef','*.js','*.yml']
